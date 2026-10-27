@@ -40,6 +40,17 @@ class Config:
     # ── Logging ──────────────────────────────────────────────────────────────
     LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO")
 
+    # Hosted demo mode settings.
+    DEMO_MODE: bool = os.environ.get("DEMO_MODE", "false").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+    DEMO_INTERVAL_SECONDS: int = int(
+        os.environ.get("DEMO_INTERVAL_SECONDS", "5")
+    )
+    DATA_RETENTION_HOURS: int = int(
+        os.environ.get("DATA_RETENTION_HOURS", "24")
+    )
+
 
 class DevelopmentConfig(Config):
     """Development overrides."""
@@ -57,6 +68,7 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI: str = "sqlite:///:memory:"
     API_KEY: str = "test-api-key"
     SECRET_KEY: str = "test-secret"
+    DEMO_MODE: bool = False
 
 
 class ProductionConfig(Config):

@@ -108,6 +108,10 @@ def create_app(config_name: str = "development") -> Flask:
     # ── CLI commands ──────────────────────────────────────────────────────────
     _register_cli(app)
 
+    from app.demo import start_demo_thread
+
+    start_demo_thread(app)
+
     return app
 
 

@@ -44,6 +44,8 @@ helpers are pure functions and the integration function creates alerts.
   and server-rendered Matplotlib PNG trend charts. No custom JavaScript is used.
 - SQLite by default, or MySQL through `DATABASE_URL`; health endpoint at
   `/health`; `flask init-db` and `flask seed` commands.
+- Optional hosted demo mode generates sensor readings in a background daemon
+  thread and prunes old readings to bound storage.
 
 ## Project layout
 
@@ -144,6 +146,40 @@ python simulator\sensor_sim.py --interval 2 --drift
 
 Stop the simulator with Ctrl+C. `--spike-rate 0.2` sets a 20% per-reading spike
 chance; `--sensor-id 1` restricts simulation to a single sensor.
+
+## Hosted demo
+
+Set these variables in the host's environment to generate readings inside the
+Flask app without running `simulator\sensor_sim.py` separately:
+
+```dotenv
+DEMO_MODE=true
+DEMO_INTERVAL_SECONDS=5
+DATA_RETENTION_HOURS=24
+```
+
+Demo mode is disabled by default. When enabled, the application starts one
+process-wide daemon thread (the Werkzeug reloader parent defers startup to its
+child). The thread creates one reading for each active sensor per cycle using
+the simulator's sensor-type baselines, noise, occasional spikes, and gradual
+drift; each reading goes through the normal rules engine. Every 100 cycles it
+deletes readings older than `DATA_RETENTION_HOURS`, while retaining alerts and
+clearing references to pruned readings.
+
+On a host that uses multiple worker processes, use one web worker when demo
+mode is enabled: thread guards are process-local, so each worker would
+otherwise produce its own readings. Initialize the database and seed sample
+sensors before enabling demo mode:
+
+```powershell
+$env:FLASK_APP = "run.py"
+flask init-db
+flask seed
+```
+
+The demo thread is for previews and hosted demonstrations, not a durable
+production scheduler. For multi-worker production deployments, move scheduled
+generation to a dedicated worker or task queue.
 
 ## Optional MySQL setup
 
