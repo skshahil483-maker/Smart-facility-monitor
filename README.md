@@ -1,5 +1,9 @@
 # SmartFacility Monitor
 
+**Live demo:** https://smart-facility-monitor.onrender.com/overview
+*(Free hosting: the first load can take about 50 seconds to wake up.)*
+**Demo login:** `admin` / `Admin@123`
+
 SmartFacility Monitor is a Flask application for ingesting building and
 industrial sensor readings, detecting threshold excursions and gradual drift,
 and presenting actionable safety alerts to operators.
