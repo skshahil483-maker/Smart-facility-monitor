@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  {% if auto_refresh is defined and auto_refresh %}
+  <meta http-equiv="refresh" content="{{ auto_refresh }}" />
+  {% endif %}
+
+  <title>{% block title %}SmartFacility Monitor{% endblock %} — SFM</title>
+  <meta name="description" content="Industrial sensor monitoring and safety alert system." />
+
+  <!-- Bootstrap 5 (dark theme) -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+    crossorigin="anonymous"
+  />
+  <!-- Bootstrap Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+  />
+
+  <style>
+    /* ── Custom tokens ── */
+    :root {
+      --sfm-primary: #1a73e8;
+      --sfm-warning: #f9a825;
+      --sfm-critical: #d32f2f;
+      --sfm-normal: #1db954;
+    }
+    body { font-family: "Segoe UI", Roboto, sans-serif; }
+
+    /* Sidebar */
+    .sidebar { min-height: 100vh; width: 220px; flex-shrink: 0; }
+    .sidebar .nav-link { color: rgba(255,255,255,.75); border-radius: 6px; }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,.12); }
+    .sidebar .nav-link i { width: 20px; }
+
+    /* Status badges */
+    .badge-normal   { background-color: var(--sfm-normal);   color: #000; }
+    .badge-warning  { background-color: var(--sfm-warning);  color: #000; }
+    .badge-critical { background-color: var(--sfm-critical);  color: #fff; }
+    .badge-no_data  { background-color: #6c757d;              color: #fff; }
+    .badge-drift    { background-color: #7b1fa2;              color: #fff; }
+
+    /* Sensor cards */
+    .sensor-card { transition: transform .15s, box-shadow .15s; }
+    .sensor-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+
+    /* Chart image */
+    .chart-img { max-width: 100%; border-radius: 8px; }
+
+    /* Alert severity colours */
+    .alert-row-warning  { border-left: 4px solid var(--sfm-warning) !important; }
+    .alert-row-critical { border-left: 4px solid var(--sfm-critical) !important; }
+    .alert-row-drift    { border-left: 4px solid #7b1fa2 !important; }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<div class="d-flex">
+  <!-- ── Sidebar ── -->
+  {% if current_user.is_authenticated %}
+  <nav class="sidebar bg-dark p-3 d-flex flex-column gap-1">
+    <a class="navbar-brand text-white fw-bold mb-3 text-decoration-none fs-5" href="{{ url_for('dashboard.overview') }}">
+      <i class="bi bi-cpu-fill text-primary me-1"></i>SFM
+    </a>
+
+    <a class="nav-link {% if request.endpoint == 'dashboard.overview' %}active{% endif %}"
+       href="{{ url_for('dashboard.overview') }}">
+      <i class="bi bi-grid-3x3-gap-fill me-2"></i>Overview
+    </a>
+    <a class="nav-link {% if request.endpoint and 'alert' in request.endpoint %}active{% endif %}"
+       href="{{ url_for('dashboard.alerts') }}">
+      <i class="bi bi-bell-fill me-2"></i>Alerts
+      {% set open_count = namespace(v=0) %}
+      {# quick badge – fetched in context_processor if needed #}
+    </a>
+
+    {% if current_user.has_role('admin') %}
+    <hr class="border-secondary my-1" />
+    <span class="text-muted small text-uppercase px-2 mb-1">Admin</span>
+    <a class="nav-link {% if request.endpoint == 'dashboard.admin_sensors' %}active{% endif %}"
+       href="{{ url_for('dashboard.admin_sensors') }}">
+      <i class="bi bi-hdd-stack-fill me-2"></i>Sensors
+    </a>
+    <a class="nav-link {% if request.endpoint == 'dashboard.admin_users' %}active{% endif %}"
+       href="{{ url_for('dashboard.admin_users') }}">
+      <i class="bi bi-people-fill me-2"></i>Users
+    </a>
+    {% endif %}
+
+    <div class="mt-auto pt-3 border-top border-secondary">
+      <span class="text-muted small d-block mb-1">
+        <i class="bi bi-person-circle me-1"></i>{{ current_user.username }}
+        <span class="badge bg-secondary ms-1">{{ current_user.role }}</span>
+      </span>
+      <form method="post" action="{{ url_for('auth.logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <button class="nav-link text-danger border-0 bg-transparent w-100 text-start" type="submit">
+          <i class="bi bi-box-arrow-right me-2"></i>Logout
+        </button>
+      </form>
+    </div>
+  </nav>
+  {% endif %}
+
+  <!-- ── Main content ── -->
+  <main class="flex-grow-1 p-4" style="min-width:0;">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="mb-3">
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show mb-2" role="alert">
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+  integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmS2FiX7E/yBX/w9GCEQnkDEqnJ5"
+  crossorigin="anonymous"
+></script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

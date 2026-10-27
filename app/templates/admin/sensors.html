@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="h3 fw-bold mb-0"><i class="bi bi-hdd-stack-fill text-primary me-2"></i>Manage Sensors</h1>
+</div>
+
+<div class="row g-4">
+  <!-- Add new sensor form -->
+  <div class="col-lg-4">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-plus-circle-fill text-success me-2"></i>Add New Sensor
+      </div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {{ form.hidden_tag() }}
+
+          {% for field in [form.name, form.type, form.location, form.unit,
+                           form.warning_min, form.warning_max,
+                           form.critical_min, form.critical_max] %}
+          <div class="mb-2">
+            {{ field.label(class="form-label form-label-sm text-muted") }}
+            {{ field(class="form-control form-control-sm bg-dark text-white border-secondary",
+                     id="new-sensor-" + field.name) }}
+            {% if field.errors %}
+            <div class="text-danger small">{{ field.errors[0] }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+
+          <div class="mb-3 form-check">
+            {{ form.is_active(class="form-check-input", id="new-sensor-is_active") }}
+            {{ form.is_active.label(class="form-check-label text-muted") }}
+          </div>
+
+          {{ form.submit(class="btn btn-success w-100", id="btn-add-sensor") }}
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sensor list -->
+  <div class="col-lg-8">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-list-ul me-2 text-primary"></i>{{ sensors | length }} Sensor(s)
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover table-sm mb-0">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Location</th>
+              <th>Unit</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in sensors %}
+            <tr>
+              <td>
+                <a href="{{ url_for('dashboard.sensor_detail', sensor_id=s.id) }}"
+                   class="text-info text-decoration-none">{{ s.name }}</a>
+              </td>
+              <td><span class="badge bg-secondary">{{ s.type }}</span></td>
+              <td class="text-muted small">{{ s.location }}</td>
+              <td class="text-muted small">{{ s.unit }}</td>
+              <td>
+                <span class="badge {% if s.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                  {{ 'Active' if s.is_active else 'Inactive' }}
+                </span>
+              </td>
+              <td>
+                <div class="d-flex gap-1">
+                  <a href="{{ url_for('dashboard.edit_sensor', sensor_id=s.id) }}"
+                     class="btn btn-sm btn-outline-primary" id="edit-sensor-{{ s.id }}">Edit</a>
+                  <form method="post"
+                        action="{{ url_for('dashboard.delete_sensor', sensor_id=s.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button class="btn btn-sm btn-outline-danger" id="del-sensor-{{ s.id }}">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted fst-italic">No sensors configured.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

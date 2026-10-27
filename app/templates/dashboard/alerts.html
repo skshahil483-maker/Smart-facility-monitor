@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="h3 fw-bold mb-0">
+    <i class="bi bi-bell-fill text-warning me-2"></i>Alerts
+  </h1>
+</div>
+
+<!-- Filter bar -->
+<form method="get" action="{{ url_for('dashboard.alerts') }}" class="card bg-dark border-secondary p-3 mb-4">
+  <div class="row g-2 align-items-end">
+    <div class="col-sm-4">
+      <label class="form-label text-muted small" for="status-filter">Status</label>
+      <select class="form-select form-select-sm bg-dark text-white border-secondary" name="status" id="status-filter">
+        <option value="">All</option>
+        {% for s in ['open', 'acknowledged', 'resolved'] %}
+        <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s | capitalize }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-sm-4">
+      <label class="form-label text-muted small" for="severity-filter">Severity</label>
+      <select class="form-select form-select-sm bg-dark text-white border-secondary" name="severity" id="severity-filter">
+        <option value="">All</option>
+        {% for sev in ['warning', 'critical', 'drift'] %}
+        <option value="{{ sev }}" {% if severity_filter == sev %}selected{% endif %}>{{ sev | capitalize }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-sm-4 d-flex gap-2">
+      <button type="submit" class="btn btn-primary btn-sm" id="btn-filter">
+        <i class="bi bi-funnel-fill me-1"></i>Filter
+      </button>
+      <a href="{{ url_for('dashboard.alerts') }}" class="btn btn-outline-secondary btn-sm">Clear</a>
+    </div>
+  </div>
+</form>
+
+<!-- Alerts table -->
+{% if alerts %}
+<div class="card bg-dark border-secondary">
+  <div class="table-responsive">
+    <table class="table table-dark table-hover mb-0">
+      <thead class="border-secondary">
+        <tr>
+          <th>#</th>
+          <th>Sensor</th>
+          <th>Severity</th>
+          <th>Message</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for alert in alerts %}
+        <tr class="alert-row-{{ alert.severity }}">
+          <td class="text-muted">{{ alert.id }}</td>
+          <td>
+            <a href="{{ url_for('dashboard.sensor_detail', sensor_id=alert.sensor_id) }}"
+               class="text-info text-decoration-none">
+              {{ alert.sensor.name if alert.sensor else alert.sensor_id }}
+            </a>
+          </td>
+          <td><span class="badge badge-{{ alert.severity }}">{{ alert.severity | upper }}</span></td>
+          <td style="max-width:360px; word-break:break-word;">
+            <span class="text-muted small">{{ alert.message }}</span>
+          </td>
+          <td>
+            <span class="badge bg-secondary">{{ alert.status | capitalize }}</span>
+            {% if alert.status == 'acknowledged' and alert.acknowledged_by_user %}
+            <div class="text-muted" style="font-size:.72rem;">by {{ alert.acknowledged_by_user.username }}</div>
+            {% endif %}
+            {% if alert.status == 'resolved' and alert.resolved_by_user %}
+            <div class="text-muted" style="font-size:.72rem;">by {{ alert.resolved_by_user.username }}</div>
+            {% endif %}
+          </td>
+          <td class="text-muted small" style="white-space:nowrap;">
+            {{ alert.created_at.strftime('%d %b %H:%M') }}
+          </td>
+          <td>
+            {% if current_user.has_role('engineer', 'admin') %}
+            <div class="d-flex gap-1 flex-wrap">
+              {% if alert.status == 'open' %}
+              <form method="post" action="{{ url_for('dashboard.acknowledge_alert', alert_id=alert.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button class="btn btn-warning btn-sm" id="ack-alert-{{ alert.id }}">Ack</button>
+              </form>
+              {% endif %}
+              {% if alert.status != 'resolved' %}
+              <form method="post" action="{{ url_for('dashboard.resolve_alert', alert_id=alert.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button class="btn btn-success btn-sm" id="resolve-alert-{{ alert.id }}">Resolve</button>
+              </form>
+              {% endif %}
+            </div>
+            {% else %}
+            <span class="text-muted small">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Pagination -->
+{% if pagination.pages > 1 %}
+<nav class="mt-3" aria-label="Alert pagination">
+  <ul class="pagination pagination-sm justify-content-center">
+    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+      <a class="page-link bg-dark border-secondary text-white"
+         href="{{ url_for('dashboard.alerts', page=pagination.prev_num, status=status_filter, severity=severity_filter) }}">
+        &laquo; Prev
+      </a>
+    </li>
+    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+      <li class="page-item {% if p == pagination.page %}active{% endif %}">
+        <a class="page-link bg-dark border-secondary text-white"
+           href="{{ url_for('dashboard.alerts', page=p, status=status_filter, severity=severity_filter) }}">{{ p }}</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link bg-dark border-secondary text-muted">&hellip;</span></li>
+      {% endif %}
+    {% endfor %}
+    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+      <a class="page-link bg-dark border-secondary text-white"
+         href="{{ url_for('dashboard.alerts', page=pagination.next_num, status=status_filter, severity=severity_filter) }}">
+        Next &raquo;
+      </a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="alert alert-secondary">
+  <i class="bi bi-check2-circle me-2"></i>
+  No alerts found
+  {% if status_filter or severity_filter %} for the selected filters{% endif %}.
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('dashboard.admin_sensors') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back to Sensors
+  </a>
+</div>
+
+<div class="row justify-content-center">
+<div class="col-lg-6">
+  <div class="card bg-dark border-secondary shadow">
+    <div class="card-header fw-semibold">
+      <i class="bi bi-pencil-square text-warning me-2"></i>Edit: {{ sensor.name }}
+    </div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+
+        {% for field in [form.name, form.type, form.location, form.unit,
+                         form.warning_min, form.warning_max,
+                         form.critical_min, form.critical_max] %}
+        <div class="mb-3">
+          {{ field.label(class="form-label fw-semibold") }}
+          {{ field(class="form-control bg-dark text-white border-secondary",
+                   id="edit-" + field.name) }}
+          {% if field.errors %}
+          <div class="text-danger small mt-1">{{ field.errors[0] }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="mb-3 form-check">
+          {{ form.is_active(class="form-check-input", id="edit-is_active") }}
+          {{ form.is_active.label(class="form-check-label") }}
+        </div>
+
+        {{ form.submit(class="btn btn-warning w-100", id="btn-update-sensor") }}
+      </form>
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}

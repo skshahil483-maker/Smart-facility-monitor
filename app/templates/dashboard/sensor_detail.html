@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Back link -->
+<a href="{{ url_for('dashboard.overview') }}" class="btn btn-sm btn-outline-secondary mb-3">
+  <i class="bi bi-arrow-left me-1"></i>Back to Overview
+</a>
+
+<!-- Sensor header -->
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+  <div>
+    <h1 class="h3 fw-bold mb-1">
+      <i class="bi bi-broadcast-pin text-primary me-2"></i>{{ sensor.name }}
+    </h1>
+    <p class="text-muted mb-0">
+      <i class="bi bi-geo-alt-fill me-1"></i>{{ sensor.location }}
+      &nbsp;&middot;&nbsp;
+      <i class="bi bi-tag-fill me-1"></i>{{ sensor.type | capitalize }}
+    </p>
+  </div>
+  {% set st = sensor.status() %}
+  <span class="badge badge-{{ st }} fs-6 px-3 py-2">{{ st | upper }}</span>
+</div>
+
+<!-- Latest value card + thresholds -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body text-center py-4">
+        <div class="text-muted small mb-1">Latest Value</div>
+        {% if recent_readings %}
+        <div class="display-4 fw-bold text-white">
+          {{ "%.2f" | format(recent_readings[0].value) }}
+        </div>
+        <div class="text-muted">{{ sensor.unit }}</div>
+        <div class="text-muted small mt-2">
+          {{ recent_readings[0].timestamp.strftime('%d %b %Y %H:%M:%S') }}
+        </div>
+        {% else %}
+        <div class="text-muted fst-italic">No data</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-8">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <h6 class="card-subtitle text-muted mb-3">Configured Thresholds</h6>
+        <div class="row g-2">
+          {% for label, val, color in [
+            ('Warning Min',  sensor.warning_min,  'warning'),
+            ('Warning Max',  sensor.warning_max,  'warning'),
+            ('Critical Min', sensor.critical_min, 'danger'),
+            ('Critical Max', sensor.critical_max, 'danger'),
+          ] %}
+          <div class="col-6">
+            <div class="border border-{{ color }} border-opacity-50 rounded p-2 text-center">
+              <div class="text-muted small">{{ label }}</div>
+              <div class="fw-bold text-{{ color }}">
+                {% if val is not none %}{{ val }} {{ sensor.unit }}{% else %}—{% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Trend chart -->
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-header d-flex justify-content-between">
+    <span><i class="bi bi-graph-up me-2 text-primary"></i>Trend Chart (last 100 readings)</span>
+    <a href="{{ url_for('dashboard.sensor_detail', sensor_id=sensor.id) }}"
+       class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+    </a>
+  </div>
+  <div class="card-body text-center p-2">
+    <img
+      src="{{ url_for('dashboard.sensor_chart', sensor_id=sensor.id) }}"
+      alt="Trend chart for {{ sensor.name }}"
+      class="chart-img"
+    />
+  </div>
+</div>
+
+<!-- Open alerts for this sensor -->
+{% if open_alerts %}
+<div class="card bg-dark border-danger mb-4">
+  <div class="card-header text-danger fw-semibold">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>Open Alerts ({{ open_alerts | length }})
+  </div>
+  <ul class="list-group list-group-flush">
+    {% for alert in open_alerts %}
+    <li class="list-group-item bg-dark alert-row-{{ alert.severity }} d-flex justify-content-between align-items-start py-3">
+      <div>
+        <span class="badge badge-{{ alert.severity }} me-2">{{ alert.severity | upper }}</span>
+        <span class="text-white">{{ alert.message }}</span>
+        <div class="text-muted small mt-1">{{ alert.created_at.strftime('%d %b %Y %H:%M:%S') }}</div>
+      </div>
+      {% if current_user.has_role('engineer', 'admin') %}
+      <div class="d-flex gap-2 ms-3">
+        {% if alert.status == 'open' %}
+        <form method="post" action="{{ url_for('dashboard.acknowledge_alert', alert_id=alert.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button class="btn btn-sm btn-warning" id="ack-{{ alert.id }}">Ack</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{{ url_for('dashboard.resolve_alert', alert_id=alert.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button class="btn btn-sm btn-success" id="resolve-{{ alert.id }}">Resolve</button>
+        </form>
+      </div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<!-- Recent readings table -->
+<div class="card bg-dark border-secondary">
+  <div class="card-header">
+    <i class="bi bi-table me-2 text-primary"></i>Recent Readings
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover table-sm mb-0">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Timestamp</th>
+          <th>Value</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in recent_readings %}
+        {% set st = namespace(v='normal') %}
+        {# Inline threshold check for display #}
+        {% if sensor.critical_max is not none and r.value > sensor.critical_max %}{% set st.v = 'critical' %}
+        {% elif sensor.critical_min is not none and r.value < sensor.critical_min %}{% set st.v = 'critical' %}
+        {% elif sensor.warning_max is not none and r.value > sensor.warning_max %}{% set st.v = 'warning' %}
+        {% elif sensor.warning_min is not none and r.value < sensor.warning_min %}{% set st.v = 'warning' %}
+        {% endif %}
+        <tr>
+          <td class="text-muted">{{ r.id }}</td>
+          <td>{{ r.timestamp.strftime('%d %b %H:%M:%S') }}</td>
+          <td class="fw-semibold">{{ "%.3f" | format(r.value) }} {{ sensor.unit }}</td>
+          <td><span class="badge badge-{{ st.v }}">{{ st.v }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="text-center text-muted fst-italic">No readings yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

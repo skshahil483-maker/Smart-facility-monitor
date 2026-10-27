@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('dashboard.admin_users') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back to Users
+  </a>
+</div>
+
+<div class="row justify-content-center">
+<div class="col-lg-5">
+  <div class="card bg-dark border-secondary shadow">
+    <div class="card-header fw-semibold">
+      <i class="bi bi-pencil-square text-warning me-2"></i>Edit User: {{ target_user.username }}
+    </div>
+    <div class="card-body">
+      <div class="mb-3 p-2 bg-secondary bg-opacity-25 rounded small text-muted">
+        <strong>Email:</strong> {{ target_user.email }}<br />
+        <strong>Created:</strong> {{ target_user.created_at.strftime('%d %b %Y') }}
+      </div>
+
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+
+        <div class="mb-3">
+          {{ form.role.label(class="form-label fw-semibold") }}
+          {{ form.role(class="form-select bg-dark text-white border-secondary", id="edit-user-role") }}
+          {% if form.role.errors %}
+          <div class="text-danger small mt-1">{{ form.role.errors[0] }}</div>
+          {% endif %}
+        </div>
+
+        <div class="mb-3 form-check">
+          {{ form.is_active(class="form-check-input", id="edit-user-is_active") }}
+          {{ form.is_active.label(class="form-check-label") }}
+        </div>
+
+        {{ form.submit(class="btn btn-warning w-100", id="btn-save-user") }}
+      </form>
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}

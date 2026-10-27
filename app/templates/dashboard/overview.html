@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<!-- Header row -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h1 class="h3 fw-bold mb-0">
+      <i class="bi bi-grid-3x3-gap-fill text-primary me-2"></i>Facility Overview
+    </h1>
+    <p class="text-muted small mb-0">Auto-refreshes every {{ auto_refresh }}s
+      &nbsp;—&nbsp; <a href="{{ url_for('dashboard.overview') }}" class="text-primary">Refresh now</a>
+    </p>
+  </div>
+  <div>
+    <a href="{{ url_for('dashboard.alerts') }}?status=open" class="btn btn-outline-danger position-relative">
+      <i class="bi bi-bell-fill me-1"></i>Open Alerts
+      {% if open_alert_count > 0 %}
+      <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+        {{ open_alert_count }}
+      </span>
+      {% endif %}
+    </a>
+  </div>
+</div>
+
+<!-- Summary stats bar -->
+<div class="row g-3 mb-4">
+  {% set total = sensor_data | length %}
+  {% set n_critical = sensor_data | selectattr("status", "equalto", "critical") | list | length %}
+  {% set n_warning  = sensor_data | selectattr("status", "equalto", "warning")  | list | length %}
+  {% set n_normal   = sensor_data | selectattr("status", "equalto", "normal")   | list | length %}
+
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-2 fw-bold">{{ total }}</div>
+      <div class="text-muted small">Active Sensors</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-danger text-center p-3">
+      <div class="fs-2 fw-bold text-danger">{{ n_critical }}</div>
+      <div class="text-muted small">Critical</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-warning text-center p-3">
+      <div class="fs-2 fw-bold text-warning">{{ n_warning }}</div>
+      <div class="text-muted small">Warning</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-success text-center p-3">
+      <div class="fs-2 fw-bold text-success">{{ n_normal }}</div>
+      <div class="text-muted small">Normal</div>
+    </div>
+  </div>
+</div>
+
+<!-- Sensor cards -->
+{% if sensor_data %}
+<div class="row g-3">
+  {% for sd in sensor_data %}
+  {% set s = sd.sensor %}
+  {% set lr = sd.latest %}
+  {% set st = sd.status %}
+
+  <div class="col-12 col-sm-6 col-xl-4">
+    <a href="{{ url_for('dashboard.sensor_detail', sensor_id=s.id) }}" class="text-decoration-none">
+      <div class="card sensor-card bg-dark border-secondary h-100">
+        <div class="card-body">
+          <!-- Header row -->
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h5 class="card-title mb-0 text-white">{{ s.name }}</h5>
+            <span class="badge badge-{{ st }} text-uppercase small">{{ st }}</span>
+          </div>
+
+          <!-- Location & type -->
+          <p class="card-text text-muted small mb-3">
+            <i class="bi bi-geo-alt-fill me-1"></i>{{ s.location }}
+            &nbsp;·&nbsp;
+            <i class="bi bi-tag-fill me-1"></i>{{ s.type }}
+          </p>
+
+          <!-- Value display -->
+          {% if lr %}
+          <div class="d-flex align-items-baseline gap-2">
+            <span class="display-6 fw-bold text-white">{{ "%.2f" | format(lr.value) }}</span>
+            <span class="text-muted">{{ s.unit }}</span>
+          </div>
+          <div class="text-muted small mt-1">
+            <i class="bi bi-clock me-1"></i>{{ lr.timestamp.strftime('%d %b %H:%M:%S') }}
+          </div>
+          {% else %}
+          <div class="text-muted fst-italic">No readings yet</div>
+          {% endif %}
+
+          <!-- Threshold mini-bar -->
+          {% if lr and s.warning_max is not none %}
+          {% set pct = [[(lr.value / s.warning_max * 100)|int, 0]|max, 100]|min %}
+          <div class="progress mt-3" style="height:6px;" title="{{ lr.value }} / {{ s.warning_max }} {{ s.unit }}">
+            <div class="progress-bar bg-{{ 'danger' if st == 'critical' else ('warning' if st == 'warning' else 'success') }}"
+                 style="width:{{ pct }}%"></div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle-fill me-2"></i>
+  No active sensors found.
+  {% if current_user.has_role('admin') %}
+  <a href="{{ url_for('dashboard.admin_sensors') }}">Add sensors</a> to get started.
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
